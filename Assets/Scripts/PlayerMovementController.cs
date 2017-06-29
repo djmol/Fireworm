@@ -1,19 +1,27 @@
 ﻿using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class PlayerMovementController : MonoBehaviour {
 		
 	public float accel = 0.5f;
-	public float maxSpeed = 5f;
+	public float maxVelocity = 5f;
+
+	[System.Flags]
+	enum PlayerState {
+		Idle = 1,
+		Moving = 2,
+		Boosting = 4,
+	};
 
 	Rigidbody rb;
 	float velX = 0f;
 	float velY = 0f;
-
+	PlayerState state;
+	
 	// Use this for initialization
 	void Start () {
 		rb = GetComponent<Rigidbody>();
+		state = PlayerState.Idle;
 	}
 	
 	// Update is called once per frame
@@ -22,29 +30,44 @@ public class PlayerMovementController : MonoBehaviour {
 	}
 	
 	void FixedUpdate () {
-		// Change all this to AddForce so we can get curving and stuff.
-
-		velX += Input.GetAxisRaw("Horizontal") * accel;
-		velY += Input.GetAxisRaw("Vertical") * accel;
-		
-		if (velX > maxSpeed)
-			velX = maxSpeed;
-		else if (velX < -maxSpeed)
-			velX = -maxSpeed;
-
-		if (velY > maxSpeed)
-			velY = maxSpeed;
-		else if (velY < -maxSpeed)
-			velY = -maxSpeed;
-		
-		if (Input.GetAxis("Jump") > 0) {
-			velX *= 3;
-			velY *= 3;
+		velX = Input.GetAxis("Horizontal") * accel;
+		velY = Input.GetAxis("Vertical") * accel;
+					
+		if (Input.GetAxis("Jump") > 0 && (state & PlayerState.Boosting) != PlayerState.Boosting) {
+			// 6/28: Fix this coroutine.
+			StartCoroutine(Boost());
 		}
 
-		rb.velocity = new Vector3(velX, velY, 0);
+		rb.AddForce(new Vector3(velX, velY, 0), ForceMode.Acceleration);
 
-		velX = Mathf.Lerp(velX, 0, Time.deltaTime * .2f);
-		velY = Mathf.Lerp(velY, 0, Time.deltaTime * .2f);
+		float vMag = GetComponent<Rigidbody>().velocity.magnitude;
+		if(vMag > maxVelocity && (state & PlayerState.Boosting) != PlayerState.Boosting) {
+				GetComponent<Rigidbody>().velocity = GetComponent<Rigidbody>().velocity.normalized * maxVelocity;
+		}
+		
+		if (vMag == 0f) {
+			state &= ~PlayerState.Moving;
+			state |= PlayerState.Idle;
+		} else {
+			state &= ~PlayerState.Idle;
+			state |= PlayerState.Moving;
+		}
+
+	}
+
+	IEnumerator Boost() {
+		state |= PlayerState.Boosting;
+		velX *= 10;
+		velY *= 10;
+		yield return new WaitForSeconds(1.0f);
+	}
+
+	/// <summary>
+	/// OnGUI is called for rendering and handling GUI events.
+	/// This function can be called multiple times per frame (one call per event).
+	/// </summary>
+	void OnGUI() {
+		GUI.Box(new Rect(5, 5, 100, 35), "X:" + rb.velocity.x + "\nY:" + rb.velocity.y);
+		GUI.Box(new Rect(5, 45, 100, 35), state.ToString());
 	}
 }
