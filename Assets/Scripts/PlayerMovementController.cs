@@ -5,6 +5,10 @@ public class PlayerMovementController : MonoBehaviour {
 		
 	public float accel = 0.5f;
 	public float maxVelocity = 5f;
+	public float boostDuration = 1f;
+	public float boostCooldown = 1f;
+	public Material boostMaterial;
+	public Light backLight;
 
 	[System.Flags]
 	enum PlayerState {
@@ -13,15 +17,24 @@ public class PlayerMovementController : MonoBehaviour {
 		Boosting = 4,
 	};
 
+	PlayerState state;
 	Rigidbody rb;
+	Renderer rend;
 	float velX = 0f;
 	float velY = 0f;
-	PlayerState state;
+	float boostTime;
+	Material stdPlayerMaterial;
+	Color stdBackLightColor;
 	
 	// Use this for initialization
 	void Start () {
 		rb = GetComponent<Rigidbody>();
+		rend = GetComponent<Renderer>();
 		state = PlayerState.Idle;
+
+		boostTime = boostDuration;
+		stdBackLightColor = backLight.color;
+		stdPlayerMaterial = rend.material;
 	}
 	
 	// Update is called once per frame
@@ -34,7 +47,7 @@ public class PlayerMovementController : MonoBehaviour {
 		velY = Input.GetAxis("Vertical") * accel;
 					
 		if (Input.GetAxis("Jump") > 0 && (state & PlayerState.Boosting) != PlayerState.Boosting) {
-			// 6/28: Fix this coroutine.
+
 			StartCoroutine(Boost());
 		}
 
@@ -56,10 +69,35 @@ public class PlayerMovementController : MonoBehaviour {
 	}
 
 	IEnumerator Boost() {
-		state |= PlayerState.Boosting;
-		velX *= 10;
-		velY *= 10;
-		yield return new WaitForSeconds(1.0f);
+		yield return StartBoost();
+		FinishBoost();
+	}
+
+	IEnumerator StartBoost() {
+		stdBackLightColor = backLight.color;
+		stdPlayerMaterial = rend.material;
+
+		while (boostTime > 0.0f) {
+			state |= PlayerState.Boosting;
+			backLight.color = new Color(255/255f, 80/255f, 0/255f, 255/255f);
+			rend.material = boostMaterial;
+			velX *= 10;
+			velY *= 10;
+			// Take pausing into consideration if implemented...
+			boostTime -= Time.deltaTime;
+			Debug.Log(boostTime);
+			yield return null;
+		}
+	}
+
+	void FinishBoost() {
+		state &= ~PlayerState.Boosting;
+		
+		backLight.color = stdBackLightColor;
+		rend.material = stdPlayerMaterial;
+		boostTime = boostDuration;
+		// TODO: boostCooldown
+		return;
 	}
 
 	/// <summary>
