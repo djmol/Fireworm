@@ -9,6 +9,7 @@ public class PlayerMovementController : MonoBehaviour {
 	public float boostCooldown = 1f;
 	public Material boostMaterial;
 	public Light backLight;
+	public ParticleSystem psTrail;
 
 	[System.Flags]
 	enum PlayerState {
