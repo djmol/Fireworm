@@ -10,6 +10,7 @@ public class PlayerMovementController : MonoBehaviour {
 	public Material boostMaterial;
 	public Light backLight;
 	public ParticleSystem psTrail;
+	public ParticleSystem psBurst;
 
 	[System.Flags]
 	enum PlayerState {
@@ -70,6 +71,7 @@ public class PlayerMovementController : MonoBehaviour {
 	}
 
 	IEnumerator Boost() {
+		psBurst.Emit(10);
 		yield return StartBoost();
 		FinishBoost();
 	}
