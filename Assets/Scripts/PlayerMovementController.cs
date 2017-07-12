@@ -9,8 +9,10 @@ public class PlayerMovementController : MonoBehaviour {
 	public float boostCooldown = 1f;
 	public Material boostMaterial;
 	public Light backLight;
+	public TrailRenderer boostTrail;
 	public ParticleSystem psTrail;
-	public ParticleSystem psBurst;
+	public ParticleSystem psBurstShower;
+	public ParticleSystem psBurstSphere;
 
 	[System.Flags]
 	enum PlayerState {
@@ -71,12 +73,15 @@ public class PlayerMovementController : MonoBehaviour {
 	}
 
 	IEnumerator Boost() {
-		psBurst.Emit(10);
 		yield return StartBoost();
 		FinishBoost();
 	}
 
 	IEnumerator StartBoost() {
+		// Paint player trail while boosting
+		boostTrail.gameObject.layer = LayerMask.NameToLayer("Paint");
+
+		// Change player appearance to boost mode
 		stdBackLightColor = backLight.color;
 		stdPlayerMaterial = rend.material;
 
@@ -95,12 +100,50 @@ public class PlayerMovementController : MonoBehaviour {
 
 	void FinishBoost() {
 		state &= ~PlayerState.Boosting;
+
+		// Set off a 'splosion!
+		int psNum = Random.Range(0,2);
+		if (psNum == 0) {
+			var col = psBurstShower.colorOverLifetime;
+			col.color = CreateRandomFireworkGradient();
+			psBurstShower.Emit(Random.Range(30,50));
+		} else {
+			var col = psBurstSphere.colorOverLifetime;
+			col.color = CreateRandomFireworkGradient();
+			psBurstSphere.Emit(Random.Range(50,80));
+		}
+
+		// Stop painting player trail
+		boostTrail.gameObject.layer = 0;
 		
+		// Reset player appearance
 		backLight.color = stdBackLightColor;
 		rend.material = stdPlayerMaterial;
+
 		boostTime = boostDuration;
 		// TODO: boostCooldown
 		return;
+	}
+
+	Gradient CreateRandomFireworkGradient() {
+		Gradient grad = new Gradient();
+		Color color = Random.ColorHSV(0f, 1f, 1f, 1f, 1f, 1f, 1f, 1f);
+		Color lightColor = color;
+		lightColor.a = .8f;
+		lightColor.r += .5f;
+		lightColor.g += .5f;
+		lightColor.b += .5f;
+		grad.SetKeys( new GradientColorKey[] {
+			new GradientColorKey(lightColor, 0f),
+			new GradientColorKey(color, 1f)
+			},
+			new GradientAlphaKey[] {
+				new GradientAlphaKey(.5f, 1f),
+				new GradientAlphaKey(1f, 1f)
+			}
+		);
+
+		return grad;
 	}
 
 	/// <summary>
