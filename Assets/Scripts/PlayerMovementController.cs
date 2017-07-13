@@ -19,19 +19,24 @@ public class PlayerMovementController : MonoBehaviour {
 		Idle = 1,
 		Moving = 2,
 		Boosting = 4,
+		Orbiting = 8,
 	};
 
 	PlayerState state;
+	Transform tf;
 	Rigidbody rb;
 	Renderer rend;
 	float velX = 0f;
 	float velY = 0f;
 	float boostTime;
+	GameObject orbiting;
+	SphereCollider orbitingCd;
 	Material stdPlayerMaterial;
 	Color stdBackLightColor;
 	
 	// Use this for initialization
 	void Start () {
+		tf = GetComponent<Transform>();
 		rb = GetComponent<Rigidbody>();
 		rend = GetComponent<Renderer>();
 		state = PlayerState.Idle;
@@ -43,18 +48,31 @@ public class PlayerMovementController : MonoBehaviour {
 	
 	// Update is called once per frame
 	void Update () {
-
+		
 	}
 	
 	void FixedUpdate () {
+		float rotateSpeed = 2.5f;
+		float speed = 4f;
+		if ((state & PlayerState.Orbiting) == PlayerState.Orbiting) {
+			// Repel player
+			Vector3 repel = (transform.position - orbiting.transform.position).normalized * 3f;
+			if ((transform.position - orbiting.transform.position).magnitude < repel.magnitude) {
+				rb.AddForce(repel * (1/(transform.position - orbiting.transform.position).magnitude) * 9.8f, ForceMode.Acceleration);
+			}
+						
+			// Attract player
+			Vector3 attract = (transform.position - orbiting.transform.position).normalized * orbitingCd.radius;
+			Debug.DrawRay(orbiting.transform.position, attract, Color.magenta, 5000f);	
+		}
+
 		velX = Input.GetAxis("Horizontal") * accel;
 		velY = Input.GetAxis("Vertical") * accel;
 					
 		if (Input.GetAxis("Jump") > 0 && (state & PlayerState.Boosting) != PlayerState.Boosting) {
-
 			StartCoroutine(Boost());
 		}
-
+		
 		rb.AddForce(new Vector3(velX, velY, 0), ForceMode.Acceleration);
 
 		float vMag = GetComponent<Rigidbody>().velocity.magnitude;
@@ -84,6 +102,9 @@ public class PlayerMovementController : MonoBehaviour {
 		// Change player appearance to boost mode
 		stdBackLightColor = backLight.color;
 		stdPlayerMaterial = rend.material;
+
+		// Break orbit
+		BreakOrbit();
 
 		while (boostTime > 0.0f) {
 			state |= PlayerState.Boosting;
@@ -130,16 +151,23 @@ public class PlayerMovementController : MonoBehaviour {
 		Color color = Random.ColorHSV(0f, 1f, 1f, 1f, 1f, 1f, 1f, 1f);
 		Color lightColor = color;
 		lightColor.a = .8f;
-		lightColor.r += .5f;
-		lightColor.g += .5f;
-		lightColor.b += .5f;
+		lightColor.r += .8f;
+		lightColor.g += .8f;
+		lightColor.b += .8f;
+		Color darkColor = color;
+		darkColor.a = .8f;
+		darkColor.r -= .8f;
+		darkColor.g -= .8f;
+		darkColor.b -= .8f;
 		grad.SetKeys( new GradientColorKey[] {
-			new GradientColorKey(lightColor, 0f),
-			new GradientColorKey(color, 1f)
+			new GradientColorKey(color, 0f),
+			new GradientColorKey(color, .9f),
+			new GradientColorKey(Color.black, 1f)
 			},
 			new GradientAlphaKey[] {
-				new GradientAlphaKey(.5f, 1f),
-				new GradientAlphaKey(1f, 1f)
+				new GradientAlphaKey(1f, 0f),
+				new GradientAlphaKey(1f, .9f),
+				new GradientAlphaKey(.5f, 1f)
 			}
 		);
 
@@ -153,5 +181,40 @@ public class PlayerMovementController : MonoBehaviour {
 	void OnGUI() {
 		GUI.Box(new Rect(5, 5, 100, 35), "X:" + rb.velocity.x + "\nY:" + rb.velocity.y);
 		GUI.Box(new Rect(5, 45, 100, 35), state.ToString());
+	}
+
+	/// <summary>
+	/// OnTriggerEnter is called when the Collider other enters the trigger.
+	/// </summary>
+	/// <param name="other">The other Collider involved in this collision.</param>
+	void OnTriggerEnter(Collider other) {
+		// Enter orbit
+		Debug.Log("entering");
+		if (other.gameObject.tag.Equals("Orbital")) {
+			state |= PlayerState.Orbiting;
+			orbiting = other.gameObject;
+			orbitingCd = other.gameObject.GetComponents<SphereCollider>()[1];
+			rb.useGravity = false;
+		}
+	}
+
+	/// <summary>
+	/// OnTriggerExit is called when the Collider other has stopped touching the trigger.
+	/// </summary>
+	/// <param name="other">The other Collider involved in this collision.</param>
+	void OnTriggerExit(Collider other) {
+		Debug.Log("exiting");
+		if (other.gameObject.tag.Equals("Orbital")) {
+			BreakOrbit();
+		}
+	}
+
+	void BreakOrbit() {
+		if ((state & PlayerState.Orbiting) == PlayerState.Orbiting) {
+			state &= ~PlayerState.Orbiting;
+			orbiting = null;
+			orbitingCd = null;
+			rb.useGravity = true;
+		}
 	}
 }
